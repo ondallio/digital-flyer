@@ -87,6 +87,37 @@ src/
 
 자세한 내용은 `docs/GOOGLE_FORM_INTEGRATION.md` 참조.
 
+## CI/CD 자동 배포 설정
+
+### Vercel (프론트엔드)
+Git push 시 자동 배포됩니다.
+
+### Supabase (백엔드)
+GitHub Actions를 통해 자동 배포됩니다. 설정 방법:
+
+#### 1. Supabase Access Token 생성
+1. [Supabase Dashboard](https://supabase.com/dashboard) 접속
+2. Account Settings → Access Tokens
+3. "Generate new token" 클릭
+
+#### 2. GitHub Secrets 설정
+GitHub 저장소 → Settings → Secrets and variables → Actions에서 다음 시크릿 추가:
+
+| Secret Name | 값 | 설명 |
+|-------------|---|------|
+| `SUPABASE_ACCESS_TOKEN` | `sbp_xxxxx...` | Access Token |
+| `SUPABASE_PROJECT_ID` | `lfobdgnfpanykbrepszs` | 프로젝트 Reference ID |
+| `SUPABASE_DB_PASSWORD` | DB 비밀번호 | 프로젝트 생성 시 설정한 비밀번호 |
+
+#### 3. 자동 배포 트리거
+다음 파일 변경 시 자동으로 Supabase에 배포됩니다:
+- `supabase/migrations/**` - DB 마이그레이션
+- `supabase/functions/**` - Edge Functions
+- `supabase/config.toml` - 설정 파일
+
+#### 4. 수동 배포
+GitHub Actions → "Deploy Supabase Migrations" → "Run workflow"
+
 ## 데모 데이터
 
 관리자 대시보드에서 "데모 데이터 생성" 버튼을 클릭하면 테스트용 신청 데이터가 생성됩니다.
