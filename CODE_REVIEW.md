@@ -1,8 +1,8 @@
 # 코드베이스 평가 보고서
 
-**평가일:** 2026-01-06
+**평가일:** 2026-01-07
 **프로젝트:** Digital Flyer Service (디지털 전단지)
-**버전:** 1.0.0
+**버전:** 1.0.1
 
 ---
 
@@ -245,7 +245,31 @@ export const vendorRepository = {
 
 ---
 
-## 10. 결론
+## 10. 버그 수정 이력 (2026-01-07)
+
+### 수정 완료된 버그
+
+| 버그 | 파일 | 수정 내용 |
+|------|------|----------|
+| Import 경로 불일치 | `AdminRequests.tsx` | `storage` → `unified-storage` 변경, async/await 추가 |
+| Import 경로 불일치 | `AdminVendors.tsx` | `storage` → `unified-storage` 변경, async/await 추가 |
+| Import 경로 불일치 | `AdminVendorDetail.tsx` | `storage` → `unified-storage` 변경, async/await 추가 |
+| getBySlug 필터 누락 | `storage.ts` | `status === 'active'` 필터 추가 |
+| kakaoUrl 항상 빈 문자열 | `unified-storage.ts` | memo에서 카카오 URL 자동 추출 함수 추가 |
+| 테스트 환경 깨짐 | `node_modules` | 패키지 재설치로 해결 |
+
+### 테스트 결과
+
+```
+✓ src/lib/slug.test.ts (28 tests)
+✓ src/lib/price.test.ts (29 tests)
+Test Files  2 passed (2)
+Tests  57 passed (57)
+```
+
+---
+
+## 11. 결론
 
 이 프로젝트는 **잘 설계된 MVP**입니다. Repository/Adapter 패턴, 엄격한 TypeScript 설정, 모바일 최적화 UX 등 좋은 아키텍처 결정이 많습니다.
 

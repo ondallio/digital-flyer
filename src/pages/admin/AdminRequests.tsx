@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Search, Check, X, Copy, ExternalLink } from 'lucide-react';
-import { requestRepository, approvalService } from '../../lib/storage';
+import { requestRepository, approvalService } from '../../lib/unified-storage';
 import type { Request, RequestStatus } from '../../types';
 
 type TabType = 'all' | RequestStatus;
@@ -25,8 +25,8 @@ export default function AdminRequests() {
     filterRequests();
   }, [requests, searchQuery, activeTab]);
 
-  const loadRequests = () => {
-    const data = requestRepository.getAll();
+  const loadRequests = async () => {
+    const data = await requestRepository.getAll();
     setRequests(data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
   };
 
@@ -49,11 +49,11 @@ export default function AdminRequests() {
     setFilteredRequests(filtered);
   };
 
-  const handleApprove = (requestId: string) => {
+  const handleApprove = async (requestId: string) => {
     const request = requests.find((r) => r.id === requestId);
     if (!request) return;
 
-    const result = approvalService.approveRequest(requestId);
+    const result = await approvalService.approveRequest(requestId);
     if (result) {
       setApprovalResult({
         editUrl: window.location.origin + result.editUrl,
@@ -64,9 +64,9 @@ export default function AdminRequests() {
     }
   };
 
-  const handleReject = (requestId: string) => {
+  const handleReject = async (requestId: string) => {
     if (confirm('이 신청을 반려하시겠습니까?')) {
-      approvalService.rejectRequest(requestId);
+      await approvalService.rejectRequest(requestId);
       loadRequests();
       showToast('신청이 반려되었습니다.');
     }

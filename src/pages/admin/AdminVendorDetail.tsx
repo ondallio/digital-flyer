@@ -13,7 +13,7 @@ import {
   MessageCircle,
   Package
 } from 'lucide-react';
-import { vendorRepository, productRepository } from '../../lib/storage';
+import { vendorRepository, productRepository } from '../../lib/unified-storage';
 import { formatPrice, formatDiscountRate } from '../../lib/price';
 import type { Vendor, Product } from '../../types';
 
@@ -30,12 +30,13 @@ export default function AdminVendorDetail() {
     }
   }, [id]);
 
-  const loadVendor = () => {
+  const loadVendor = async () => {
     if (!id) return;
-    const v = vendorRepository.getById(id);
+    const v = await vendorRepository.getById(id);
     if (v) {
       setVendor(v);
-      setProducts(productRepository.getByVendorId(id));
+      const prods = await productRepository.getByVendorId(id);
+      setProducts(prods);
     } else {
       navigate('/admin/vendors');
     }
@@ -55,18 +56,18 @@ export default function AdminVendorDetail() {
     setTimeout(() => setToast(null), 2000);
   };
 
-  const handleRegenerateToken = () => {
+  const handleRegenerateToken = async () => {
     if (!vendor) return;
     if (confirm('편집 토큰을 재발급하시겠습니까?\n기존 링크는 더 이상 사용할 수 없습니다.')) {
-      vendorRepository.regenerateEditToken(vendor.id);
+      await vendorRepository.regenerateEditToken(vendor.id);
       loadVendor();
       showToast('토큰이 재발급되었습니다');
     }
   };
 
-  const handleStatusChange = (newStatus: Vendor['status']) => {
+  const handleStatusChange = async (newStatus: Vendor['status']) => {
     if (!vendor) return;
-    vendorRepository.update(vendor.id, { status: newStatus });
+    await vendorRepository.update(vendor.id, { status: newStatus });
     loadVendor();
     showToast('상태가 변경되었습니다');
   };

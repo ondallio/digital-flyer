@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Eye, EyeOff, Ban, ExternalLink } from 'lucide-react';
-import { vendorRepository, productRepository } from '../../lib/storage';
+import { vendorRepository, productRepository } from '../../lib/unified-storage';
 import type { Vendor, VendorStatus } from '../../types';
 
 type TabType = 'all' | VendorStatus;
@@ -21,15 +21,16 @@ export default function AdminVendors() {
     filterVendors();
   }, [vendors, searchQuery, activeTab]);
 
-  const loadVendors = () => {
-    const data = vendorRepository.getAll();
+  const loadVendors = async () => {
+    const data = await vendorRepository.getAll();
     setVendors(data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
 
     // Count products per vendor
     const counts: Record<string, number> = {};
-    data.forEach((v) => {
-      counts[v.id] = productRepository.getByVendorId(v.id).length;
-    });
+    for (const v of data) {
+      const products = await productRepository.getByVendorId(v.id);
+      counts[v.id] = products.length;
+    }
     setProductCounts(counts);
   };
 
@@ -53,8 +54,8 @@ export default function AdminVendors() {
     setFilteredVendors(filtered);
   };
 
-  const handleStatusChange = (vendorId: string, newStatus: VendorStatus) => {
-    vendorRepository.update(vendorId, { status: newStatus });
+  const handleStatusChange = async (vendorId: string, newStatus: VendorStatus) => {
+    await vendorRepository.update(vendorId, { status: newStatus });
     loadVendors();
   };
 

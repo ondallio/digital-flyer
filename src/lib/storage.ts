@@ -97,7 +97,7 @@ export const vendorRepository = {
   },
 
   getBySlug(slug: string): Vendor | undefined {
-    return this.getAll().find((v) => v.slug === slug);
+    return this.getAll().find((v) => v.slug === slug && v.status === 'active');
   },
 
   getByEditToken(token: string): Vendor | undefined {

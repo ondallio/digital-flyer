@@ -32,14 +32,23 @@ function toVendor(row: any): Vendor {
   };
 }
 
+function extractKakaoUrl(memo: string | null): string {
+  if (!memo) return '';
+  // 카카오톡 오픈채팅 URL 패턴 찾기
+  const kakaoPattern = /https?:\/\/open\.kakao\.com\/[^\s]+/i;
+  const match = memo.match(kakaoPattern);
+  return match ? match[0] : '';
+}
+
 function toRequest(row: any): Request {
+  const memo = row.memo || '';
   return {
     id: row.id,
     shopName: row.shop_name,
     managerName: row.manager_name,
     phone: row.contact,
-    kakaoUrl: '',
-    notes: row.memo,
+    kakaoUrl: extractKakaoUrl(memo),
+    notes: memo,
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
