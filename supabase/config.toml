@@ -36,5 +36,5 @@ enable_confirmations = false
 enabled = true
 file_size_limit = "5MB"
 
-[functions]
+[functions.config]
 verify_jwt = false
