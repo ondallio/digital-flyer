@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Pages
 import AdminLayout from './pages/admin/AdminLayout';
@@ -13,30 +14,31 @@ import NotFound from './pages/NotFound';
 
 function App() {
   return (
-    <Routes>
-      {/* Admin Routes */}
-      <Route path="/admin" element={<AdminLayout />}>
-        <Route index element={<AdminDashboard />} />
-        <Route path="requests" element={<AdminRequests />} />
-        <Route path="vendors" element={<AdminVendors />} />
-        <Route path="vendors/:id" element={<AdminVendorDetail />} />
-        <Route path="tickets" element={<AdminTickets />} />
-      </Route>
+    <ErrorBoundary>
+      <Routes>
+        {/* Admin Routes */}
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="requests" element={<AdminRequests />} />
+          <Route path="vendors" element={<AdminVendors />} />
+          <Route path="vendors/:id" element={<AdminVendorDetail />} />
+          <Route path="tickets" element={<AdminTickets />} />
+        </Route>
 
-      {/* Manager Edit Route */}
-      <Route path="/edit/:token" element={<ManagerEdit />} />
+        {/* Manager Edit Route */}
+        <Route path="/edit/:token" element={<ManagerEdit />} />
 
-      {/* Public Flyer Route */}
-      <Route path="/s/:slug" element={<PublicFlyer />} />
+        {/* Public Flyer Route */}
+        <Route path="/s/:slug" element={<PublicFlyer />} />
 
-      {/* Root redirect to admin */}
-      <Route path="/" element={<Navigate to="/admin" replace />} />
+        {/* Root redirect to admin */}
+        <Route path="/" element={<Navigate to="/admin" replace />} />
 
-      {/* 404 */}
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+        {/* 404 */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </ErrorBoundary>
   );
 }
 
 export default App;
-

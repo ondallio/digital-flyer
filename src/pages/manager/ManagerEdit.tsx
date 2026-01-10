@@ -1,26 +1,24 @@
-import { useEffect, useState, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { 
-  Camera, 
-  Plus, 
-  Trash2, 
-  GripVertical, 
-  Save, 
-  Eye,
-  ImagePlus
-} from 'lucide-react';
+import { Plus, Save, Eye, ImagePlus } from 'lucide-react';
+import { useVendorByToken, useToast } from '../../hooks';
 import { vendorRepository, productRepository } from '../../lib/unified-storage';
-import { calculateSalePrice, formatPrice, validatePriceInput } from '../../lib/price';
-import type { Vendor, ProductFormData } from '../../types';
+import { calculateSalePrice, validatePriceInput } from '../../lib/price';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { Toast } from '../../components/ui/Toast';
+import { FormInput } from '../../components/ui/FormInput';
+import { ImageUploader } from '../../components/ui/ImageUploader';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { ProductFormCard } from '../../components/product/ProductFormCard';
+import type { ProductFormData } from '../../types';
 
 const MAX_PRODUCTS = 6;
 
 export default function ManagerEdit() {
   const { token } = useParams<{ token: string }>();
-  const [vendor, setVendor] = useState<Vendor | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { vendor, products: initialProducts, loading } = useVendorByToken(token);
+  const { message: toast, showToast } = useToast();
   const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
 
   // Form state
   const [managerPhoto, setManagerPhoto] = useState<string>('');
@@ -29,95 +27,58 @@ export default function ManagerEdit() {
   const [kakaoUrl, setKakaoUrl] = useState('');
   const [products, setProducts] = useState<ProductFormData[]>([]);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const productFileRefs = useRef<(HTMLInputElement | null)[]>([]);
+  // Initialize form when vendor loads
+  useEffect(() => {
+    if (vendor) {
+      setManagerPhoto(vendor.managerPhoto || '');
+      setManagerName(vendor.managerName);
+      setShopName(vendor.shopName);
+      setKakaoUrl(vendor.kakaoUrl);
+    }
+  }, [vendor]);
 
   useEffect(() => {
-    if (token) {
-      loadVendor();
+    if (initialProducts.length > 0) {
+      setProducts(
+        initialProducts.map((p) => ({
+          name: p.name,
+          image: p.image,
+          originalPrice: p.originalPrice,
+          discountRate: p.discountRate,
+          saleStartDate: p.saleStartDate || '',
+          saleEndDate: p.saleEndDate || '',
+          isFeatured: p.isFeatured || false,
+        }))
+      );
     }
-  }, [token]);
+  }, [initialProducts]);
 
-  const loadVendor = async () => {
-    if (!token) return;
-    try {
-      const v = await vendorRepository.getByEditToken(token);
-      if (v) {
-        setVendor(v);
-        setManagerPhoto(v.managerPhoto || '');
-        setManagerName(v.managerName);
-        setShopName(v.shopName);
-        setKakaoUrl(v.kakaoUrl);
-
-        // Load existing products
-        const existingProducts = await productRepository.getByVendorId(v.id);
-        if (existingProducts.length > 0) {
-          setProducts(
-            existingProducts.map((p) => ({
-              name: p.name,
-              image: p.image,
-              originalPrice: p.originalPrice,
-              discountRate: p.discountRate,
-              saleStartDate: p.saleStartDate || '',
-              saleEndDate: p.saleEndDate || '',
-              isFeatured: p.isFeatured || false,
-            }))
-          );
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load vendor:', error);
-    }
-    setLoading(false);
-  };
-
-  const handleManagerPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setManagerPhoto(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleProductImageChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        updateProduct(index, 'image', reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const addProduct = () => {
+  const addProduct = useCallback(() => {
     if (products.length >= MAX_PRODUCTS) {
       showToast(`상품은 최대 ${MAX_PRODUCTS}개까지 등록 가능합니다`);
       return;
     }
-    setProducts([
-      ...products,
+    setProducts((prev) => [
+      ...prev,
       { name: '', image: '', originalPrice: 0, discountRate: 0, saleStartDate: '', saleEndDate: '', isFeatured: false },
     ]);
-  };
+  }, [products.length, showToast]);
 
-  const removeProduct = (index: number) => {
-    setProducts(products.filter((_, i) => i !== index));
-  };
+  const removeProduct = useCallback((index: number) => {
+    setProducts((prev) => prev.filter((_, i) => i !== index));
+  }, []);
 
-  const updateProduct = (index: number, field: keyof ProductFormData, value: string | number | boolean) => {
-    const updated = [...products];
-    updated[index] = { ...updated[index], [field]: value };
-    setProducts(updated);
-  };
+  const updateProduct = useCallback((index: number, field: keyof ProductFormData, value: string | number | boolean) => {
+    setProducts((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  }, []);
 
   const handleSave = async () => {
     if (!vendor) return;
 
-    // Validation
     if (!shopName.trim()) {
       showToast('매장명을 입력해주세요');
       return;
@@ -127,7 +88,6 @@ export default function ManagerEdit() {
       return;
     }
 
-    // Validate products
     for (let i = 0; i < products.length; i++) {
       const p = products[i];
       if (!p.name.trim()) {
@@ -144,7 +104,6 @@ export default function ManagerEdit() {
     setSaving(true);
 
     try {
-      // Update vendor
       await vendorRepository.update(vendor.id, {
         managerPhoto,
         managerName,
@@ -152,7 +111,6 @@ export default function ManagerEdit() {
         kakaoUrl,
       });
 
-      // Save products
       await productRepository.bulkSaveForVendor(
         vendor.id,
         products.map((p) => ({
@@ -169,30 +127,21 @@ export default function ManagerEdit() {
       );
 
       showToast('저장되었습니다!');
-    } catch (error) {
+    } catch {
       showToast('저장 중 오류가 발생했습니다');
     } finally {
       setSaving(false);
     }
   };
 
-  const showToast = (message: string) => {
-    setToast(message);
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  const openPreview = () => {
+  const openPreview = useCallback(() => {
     if (vendor) {
       window.open(`/s/${vendor.slug}`, '_blank');
     }
-  };
+  }, [vendor]);
 
   if (loading) {
-    return (
-      <div className="mobile-container flex items-center justify-center min-h-screen">
-        <p className="text-primary-400">로딩 중...</p>
-      </div>
-    );
+    return <LoadingSpinner fullScreen message="로딩 중..." />;
   }
 
   if (!vendor) {
@@ -227,31 +176,10 @@ export default function ManagerEdit() {
         <section className="space-y-3">
           <h2 className="font-semibold">매니저 사진</h2>
           <div className="flex justify-center">
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="relative w-32 h-32 rounded-full bg-primary-100 flex items-center justify-center cursor-pointer overflow-hidden border-2 border-dashed border-primary-300 hover:border-primary-400 transition-colors"
-            >
-              {managerPhoto ? (
-                <>
-                  <img
-                    src={managerPhoto}
-                    alt="매니저"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                    <Camera className="text-white" size={24} />
-                  </div>
-                </>
-              ) : (
-                <Camera className="text-primary-400" size={32} />
-              )}
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleManagerPhotoChange}
-              className="hidden"
+            <ImageUploader
+              value={managerPhoto}
+              onChange={setManagerPhoto}
+              variant="avatar"
             />
           </div>
         </section>
@@ -260,39 +188,26 @@ export default function ManagerEdit() {
         <section className="space-y-3">
           <h2 className="font-semibold">기본 정보</h2>
           <div className="space-y-3">
-            <div>
-              <label className="text-sm text-primary-500 mb-1 block">매장명</label>
-              <input
-                type="text"
-                value={shopName}
-                onChange={(e) => setShopName(e.target.value)}
-                placeholder="예: 롯데백화점 본점"
-                className="input"
-              />
-            </div>
-            <div>
-              <label className="text-sm text-primary-500 mb-1 block">담당자명</label>
-              <input
-                type="text"
-                value={managerName}
-                onChange={(e) => setManagerName(e.target.value)}
-                placeholder="예: 김민수"
-                className="input"
-              />
-            </div>
-            <div>
-              <label className="text-sm text-primary-500 mb-1 block">카카오톡 링크</label>
-              <input
-                type="url"
-                value={kakaoUrl}
-                onChange={(e) => setKakaoUrl(e.target.value)}
-                placeholder="https://open.kakao.com/o/..."
-                className="input"
-              />
-              <p className="text-xs text-primary-400 mt-1">
-                오픈채팅 또는 채널 링크를 입력하세요
-              </p>
-            </div>
+            <FormInput
+              label="매장명"
+              value={shopName}
+              onChange={(e) => setShopName(e.target.value)}
+              placeholder="예: 롯데백화점 본점"
+            />
+            <FormInput
+              label="담당자명"
+              value={managerName}
+              onChange={(e) => setManagerName(e.target.value)}
+              placeholder="예: 김민수"
+            />
+            <FormInput
+              label="카카오톡 링크"
+              type="url"
+              value={kakaoUrl}
+              onChange={(e) => setKakaoUrl(e.target.value)}
+              placeholder="https://open.kakao.com/o/..."
+              hint="오픈채팅 또는 채널 링크를 입력하세요"
+            />
           </div>
         </section>
 
@@ -311,176 +226,27 @@ export default function ManagerEdit() {
           </div>
 
           {products.length === 0 ? (
-            <div className="text-center py-8 border-2 border-dashed border-primary-200 rounded-lg">
-              <ImagePlus size={48} className="mx-auto mb-2 text-primary-300" />
-              <p className="text-primary-500">상품을 추가해주세요</p>
-              <button onClick={addProduct} className="btn btn-primary mt-4">
-                <Plus size={18} />
-                첫 상품 추가
-              </button>
-            </div>
+            <EmptyState
+              icon={<ImagePlus size={48} className="mx-auto text-primary-300" />}
+              title="상품을 추가해주세요"
+              action={
+                <button onClick={addProduct} className="btn btn-primary">
+                  <Plus size={18} />
+                  첫 상품 추가
+                </button>
+              }
+            />
           ) : (
             <div className="space-y-4">
               {products.map((product, index) => (
-                <div
+                <ProductFormCard
                   key={index}
-                  className="card p-4 space-y-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-primary-400">
-                      <GripVertical size={18} />
-                      <span className="font-medium text-primary-700">상품 {index + 1}</span>
-                    </div>
-                    <button
-                      onClick={() => removeProduct(index)}
-                      className="p-1 text-red-500 hover:bg-red-50 rounded"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-
-                  {/* Product Image */}
-                  <div
-                    onClick={() => productFileRefs.current[index]?.click()}
-                    className="relative h-48 bg-primary-100 rounded-lg flex items-center justify-center cursor-pointer overflow-hidden border-2 border-dashed border-primary-300 hover:border-primary-400 transition-colors"
-                  >
-                    {product.image ? (
-                      <>
-                        <img
-                          src={product.image}
-                          alt={product.name || '상품'}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                          <Camera className="text-white" size={24} />
-                        </div>
-                      </>
-                    ) : (
-                      <div className="text-center text-primary-400">
-                        <ImagePlus size={32} className="mx-auto mb-1" />
-                        <span className="text-sm">사진 추가</span>
-                      </div>
-                    )}
-                  </div>
-                  <input
-                    ref={(el) => { productFileRefs.current[index] = el; }}
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleProductImageChange(index, e)}
-                    className="hidden"
-                  />
-
-                  {/* Product Info */}
-                  <div>
-                    <label className="text-sm text-primary-500 mb-1 block">상품명</label>
-                    <input
-                      type="text"
-                      value={product.name}
-                      onChange={(e) => updateProduct(index, 'name', e.target.value)}
-                      placeholder="예: 캐시미어 코트"
-                      className="input"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-sm text-primary-500 mb-1 block">정가 (원)</label>
-                      <input
-                        type="number"
-                        value={product.originalPrice || ''}
-                        onChange={(e) =>
-                          updateProduct(index, 'originalPrice', parseInt(e.target.value) || 0)
-                        }
-                        placeholder="100000"
-                        className="input"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm text-primary-500 mb-1 block">할인율 (%)</label>
-                      <input
-                        type="number"
-                        value={product.discountRate || ''}
-                        onChange={(e) =>
-                          updateProduct(index, 'discountRate', parseInt(e.target.value) || 0)
-                        }
-                        placeholder="30"
-                        min="0"
-                        max="100"
-                        className="input"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Sale Price Preview */}
-                  {product.originalPrice > 0 && (
-                    <div className="bg-primary-50 rounded-lg p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-primary-500">판매가</span>
-                        <div className="text-right">
-                          <span className="text-sm text-primary-400 line-through mr-2">
-                            {formatPrice(product.originalPrice)}
-                          </span>
-                          {product.discountRate > 0 && (
-                            <span className="text-sm text-red-500 mr-2">
-                              {product.discountRate}%
-                            </span>
-                          )}
-                          <span className="font-bold text-lg">
-                            {formatPrice(
-                              calculateSalePrice(product.originalPrice, product.discountRate)
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Sale Period */}
-                  <div className="border-t border-primary-200 pt-3 mt-3">
-                    <label className="text-sm font-medium text-primary-700 mb-2 block">세일 기간</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs text-primary-500 mb-1 block">시작일</label>
-                        <input
-                          type="date"
-                          value={product.saleStartDate || ''}
-                          onChange={(e) => updateProduct(index, 'saleStartDate', e.target.value)}
-                          className="input text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-primary-500 mb-1 block">종료일</label>
-                        <input
-                          type="date"
-                          value={product.saleEndDate || ''}
-                          onChange={(e) => updateProduct(index, 'saleEndDate', e.target.value)}
-                          className="input text-sm"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Featured Toggle */}
-                  <div className="flex items-center justify-between pt-2">
-                    <div>
-                      <span className="text-sm font-medium text-primary-700">메인 노출</span>
-                      <p className="text-xs text-primary-400">상단에 우선 표시됩니다</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => updateProduct(index, 'isFeatured', !product.isFeatured)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        product.isFeatured ? 'bg-primary-900' : 'bg-primary-200'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          product.isFeatured ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
+                  index={index}
+                  product={product}
+                  onUpdate={(field, value) => updateProduct(index, field, value)}
+                  onRemove={() => removeProduct(index)}
+                  onImageChange={(dataUrl) => updateProduct(index, 'image', dataUrl)}
+                />
               ))}
             </div>
           )}
@@ -505,9 +271,7 @@ export default function ManagerEdit() {
         </button>
       </div>
 
-      {/* Toast */}
-      {toast && <div className="toast">{toast}</div>}
+      <Toast message={toast} />
     </div>
   );
 }
-

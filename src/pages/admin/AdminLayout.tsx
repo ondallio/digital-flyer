@@ -1,53 +1,31 @@
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  FileText, 
-  Store, 
+import {
+  LayoutDashboard,
+  FileText,
+  Store,
   MessageSquare,
   Bell,
   Menu,
   X
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { ticketRepository, notificationsRepository, requestRepository } from '../../lib/unified-storage';
+import { useBadges } from '../../hooks';
 
 const navItems = [
   { path: '/admin', icon: LayoutDashboard, label: '대시보드', exact: true },
-  { path: '/admin/requests', icon: FileText, label: '신청 관리', badgeType: 'requests' },
+  { path: '/admin/requests', icon: FileText, label: '신청 관리', badgeType: 'requests' as const },
   { path: '/admin/vendors', icon: Store, label: '거래처 관리' },
-  { path: '/admin/tickets', icon: MessageSquare, label: '문의 관리', badgeType: 'tickets' },
+  { path: '/admin/tickets', icon: MessageSquare, label: '문의 관리', badgeType: 'tickets' as const },
 ];
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [badges, setBadges] = useState<{ requests: number; tickets: number; notifications: number }>({
-    requests: 0,
-    tickets: 0,
-    notifications: 0,
-  });
+  const { badges, refetch } = useBadges();
   const location = useLocation();
 
   useEffect(() => {
-    loadBadges();
-  }, [location]);
-
-  const loadBadges = async () => {
-    try {
-      const [requests, tickets, notifications] = await Promise.all([
-        requestRepository.getByStatus('pending'),
-        ticketRepository.getByStatus('open'),
-        notificationsRepository.getUnreadCount('admin'),
-      ]);
-      
-      setBadges({
-        requests: requests.length,
-        tickets: tickets.length,
-        notifications: notifications,
-      });
-    } catch (error) {
-      console.error('Failed to load badges:', error);
-    }
-  };
+    refetch();
+  }, [location, refetch]);
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -59,7 +37,6 @@ export default function AdminLayout() {
       <header className="lg:hidden bg-white border-b border-primary-200 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
         <h1 className="font-semibold text-lg">디지털 전단지 관리</h1>
         <div className="flex items-center gap-2">
-          {/* Notification Bell */}
           {badges.notifications > 0 && (
             <button className="relative p-2 hover:bg-primary-100 rounded-lg">
               <Bell size={24} />
@@ -95,8 +72,8 @@ export default function AdminLayout() {
 
           <nav className="p-4 space-y-1">
             {navItems.map((item) => {
-              const badgeCount = item.badgeType ? badges[item.badgeType as keyof typeof badges] : 0;
-              
+              const badgeCount = item.badgeType ? badges[item.badgeType] : 0;
+
               return (
                 <NavLink
                   key={item.path}
@@ -122,7 +99,6 @@ export default function AdminLayout() {
             })}
           </nav>
 
-          {/* Notification Summary in Sidebar (Desktop) */}
           {badges.notifications > 0 && (
             <div className="hidden lg:block p-4 border-t border-primary-200">
               <div className="bg-red-50 rounded-lg p-3 flex items-center gap-2">
